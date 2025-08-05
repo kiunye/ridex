@@ -24,6 +24,7 @@ defmodule Ridex.DataCase do
       import Ecto.Changeset
       import Ecto.Query
       import Ridex.DataCase
+      import Ridex.AccountsFixtures
     end
   end
 
