@@ -104,7 +104,7 @@ defmodule Ridex.Drivers do
   end
 
   @doc """
-  Updates driver location.
+  Updates driver location with latitude and longitude coordinates, PostGIS point, or nil.
 
   ## Examples
 
@@ -114,6 +114,12 @@ defmodule Ridex.Drivers do
       iex> update_driver_location(driver, %{latitude: "invalid", longitude: -74.0060})
       {:error, %Ecto.Changeset{}}
 
+      iex> update_driver_location(driver, %Geo.Point{coordinates: {-74.0060, 40.7128}})
+      {:ok, %Driver{}}
+
+      iex> update_driver_location(driver, nil)
+      {:ok, %Driver{}}
+
   """
   def update_driver_location(%Driver{} = driver, %{latitude: lat, longitude: lng})
       when is_number(lat) and is_number(lng) do
@@ -121,6 +127,18 @@ defmodule Ridex.Drivers do
 
     driver
     |> Driver.location_changeset(%{current_location: location})
+    |> Repo.update()
+  end
+
+  def update_driver_location(%Driver{} = driver, %Geo.Point{} = point) do
+    driver
+    |> Driver.location_changeset(%{current_location: point})
+    |> Repo.update()
+  end
+
+  def update_driver_location(%Driver{} = driver, nil) do
+    driver
+    |> Driver.location_changeset(%{current_location: nil})
     |> Repo.update()
   end
 

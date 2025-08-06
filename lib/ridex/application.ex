@@ -14,6 +14,8 @@ defmodule Ridex.Application do
       {Phoenix.PubSub, name: Ridex.PubSub},
       # Start Phoenix Presence
       Ridex.Presence,
+      # Start the location cleanup job
+      Ridex.LocationCleanupJob,
       # Start the Finch HTTP client for sending emails
       {Finch, name: Ridex.Finch},
       # Start a worker by calling: Ridex.Worker.start_link(arg)

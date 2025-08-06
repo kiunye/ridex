@@ -205,4 +205,11 @@ defmodule Ridex.Accounts do
     Repo.delete_all(UserToken.by_token_and_context_query(token, "session"))
     :ok
   end
+
+  @doc """
+  Generates a socket token for a user.
+  """
+  def generate_user_socket_token(user) do
+    Phoenix.Token.sign(RidexWeb.Endpoint, "user socket", user.id)
+  end
 end
