@@ -60,7 +60,8 @@ defmodule Ridex.MixProject do
       {:bandit, "~> 1.5"},
       {:bcrypt_elixir, "~> 3.0"},
       {:geo_postgis, "~> 3.4"},
-      {:ex_machina, "~> 2.7", only: :test}
+      {:ex_machina, "~> 2.7", only: :test},
+      {:lazy_html, ">= 0.1.0", only: :test}
     ]
   end
 
