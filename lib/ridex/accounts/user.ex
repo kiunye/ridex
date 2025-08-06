@@ -15,6 +15,9 @@ defmodule Ridex.Accounts.User do
     field :password, :string, virtual: true
     field :password_confirmation, :string, virtual: true
 
+    has_one :driver, Ridex.Drivers.Driver
+    has_one :rider, Ridex.Riders.Rider
+
     timestamps()
   end
 
@@ -66,7 +69,7 @@ defmodule Ridex.Accounts.User do
 
   defp validate_phone(changeset) do
     changeset
-    |> validate_format(:phone, ~r/^\+?[1-9]\d{1,14}$/, 
+    |> validate_format(:phone, ~r/^\+?[1-9]\d{1,14}$/,
         message: "must be a valid phone number")
     |> validate_length(:phone, min: 10, max: 20)
   end

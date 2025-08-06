@@ -42,35 +42,32 @@ defmodule RidexWeb.UserRegistrationLive do
         />
 
         <div class="space-y-2">
-          <.label>I want to join as</.label>
-          <div class="flex gap-4">
-            <label class="flex items-center gap-2 cursor-pointer" phx-click="select_role" phx-value-role="rider">
-              <input
-                type="radio"
-                name={@form[:role].name}
-                value="rider"
-                checked={@form[:role].value == "rider"}
-                class="w-4 h-4 text-brand border-gray-300 focus:ring-brand"
-              />
-              <span class="text-sm font-medium">Rider</span>
-              <span class="text-xs text-gray-500">(Request rides)</span>
+            <label class="block text-sm font-semibold leading-6 text-zinc-800">
+              I want to join as
             </label>
-            <label class="flex items-center gap-2 cursor-pointer" phx-click="select_role" phx-value-role="driver">
-              <input
-                type="radio"
-                name={@form[:role].name}
-                value="driver"
-                checked={@form[:role].value == "driver"}
-                class="w-4 h-4 text-brand border-gray-300 focus:ring-brand"
-              />
-              <span class="text-sm font-medium">Driver</span>
-              <span class="text-xs text-gray-500">(Provide rides)</span>
-            </label>
+            <div class="flex gap-4">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="radio"
+                      name="user[role]"
+                      value="rider"
+                      checked={@role == "rider"}
+                      class="w-4 h-4 text-brand border-gray-300 focus:ring-brand"
+                      phx-change="select_role" />
+                <span class="text-sm font-medium">Rider</span>
+                <span class="text-xs text-gray-500">(Request rides)</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="radio"
+                      name="user[role]"
+                      value="driver"
+                      checked={@role == "driver"}
+                      class="w-4 h-4 text-brand border-gray-300 focus:ring-brand"
+                      phx-change="select_role" />
+                <span class="text-sm font-medium">Driver</span>
+                <span class="text-xs text-gray-500">(Provide rides)</span>
+              </label>
+            </div>
           </div>
-          <.error :for={msg <- Enum.map(@form[:role].errors, &translate_error(&1))}>
-            <%= msg %>
-          </.error>
-        </div>
 
         <:actions>
           <.button phx-disable-with="Creating account..." class="w-full">
@@ -87,7 +84,7 @@ defmodule RidexWeb.UserRegistrationLive do
 
     socket =
       socket
-      |> assign(trigger_submit: false, check_errors: false)
+      |> assign(trigger_submit: false, check_errors: false, role: "rider")
       |> assign_form(changeset)
 
     {:ok, socket, temporary_assigns: [form: nil]}
@@ -109,20 +106,27 @@ defmodule RidexWeb.UserRegistrationLive do
     {:noreply, assign_form(socket, Map.put(changeset, :action, :validate))}
   end
 
+  # def handle_event("select_role", %{"role" => role}, socket) do
+  #   # Get current form params or start with empty map
+  #   current_params = if socket.assigns.form && socket.assigns.form.params do
+  #     socket.assigns.form.params
+  #   else
+  #     %{}
+  #   end
+
+  #   # Update the role in the params
+  #   updated_params = Map.put(current_params, "role", role)
+
+  #   # Create new changeset with updated role
+  #   changeset = Accounts.change_user_registration(updated_params)
+  #   {:noreply, assign_form(socket, changeset)}
+  # end
+  def handle_event("select_role", %{"user" => %{"role" => role}}, socket) do
+    {:noreply, assign(socket, role: role)}
+  end
+
   def handle_event("select_role", %{"role" => role}, socket) do
-    # Get current form params or start with empty map
-    current_params = if socket.assigns.form && socket.assigns.form.params do
-      socket.assigns.form.params
-    else
-      %{}
-    end
-
-    # Update the role in the params
-    updated_params = Map.put(current_params, "role", role)
-
-    # Create new changeset with updated role
-    changeset = Accounts.change_user_registration(updated_params)
-    {:noreply, assign_form(socket, changeset)}
+    {:noreply, assign(socket, role: role)}
   end
 
   defp assign_form(socket, %Ecto.Changeset{} = changeset) do

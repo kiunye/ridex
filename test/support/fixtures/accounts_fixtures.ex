@@ -1,5 +1,5 @@
 defmodule Ridex.AccountsFixtures do
-  @moduletag :reload
+  # @moduletag :reload
   @moduledoc """
   This module defines test helpers for creating
   entities via the `Ridex.Accounts` context.
@@ -11,7 +11,7 @@ defmodule Ridex.AccountsFixtures do
   def valid_user_attributes(attrs \\ %{}) do
     attrs_map = Enum.into(attrs, %{})
     password = Map.get(attrs_map, :password, valid_user_password())
-    
+
     Enum.into(attrs_map, %{
       email: unique_user_email(),
       name: "Test User",
