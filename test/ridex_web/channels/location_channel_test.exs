@@ -8,7 +8,6 @@ defmodule RidexWeb.LocationChannelTest do
   alias Ridex.LocationService
 
   import Ridex.AccountsFixtures
-  import Ridex.DriversFixtures
 
   setup do
     user = user_fixture()

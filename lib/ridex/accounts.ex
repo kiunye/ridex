@@ -86,6 +86,41 @@ defmodule Ridex.Accounts do
   end
 
   @doc """
+  Creates a user and their associated profile (driver or rider).
+
+  ## Examples
+
+      iex> create_user_with_profile(%{role: "driver", email: "driver@example.com"})
+      {:ok, %User{}}
+
+      iex> create_user_with_profile(%{field: bad_value})
+      {:error, %Ecto.Changeset{}}
+
+  """
+  def create_user_with_profile(attrs \\ %{}) do
+    Repo.transaction(fn ->
+      with {:ok, user} <- create_user(attrs),
+           {:ok, _profile} <- create_user_profile(user, attrs) do
+        user
+      else
+        {:error, changeset} -> Repo.rollback(changeset)
+      end
+    end)
+  end
+
+  defp create_user_profile(%User{role: :driver} = user, _attrs) do
+    Ridex.Drivers.create_driver(%{user_id: user.id})
+  end
+
+  defp create_user_profile(%User{role: :rider} = user, _attrs) do
+    Ridex.Riders.create_rider(%{user_id: user.id})
+  end
+
+  defp create_user_profile(_user, _attrs) do
+    {:ok, nil}  # No profile needed for other roles
+  end
+
+  @doc """
   Updates a user.
 
   ## Examples

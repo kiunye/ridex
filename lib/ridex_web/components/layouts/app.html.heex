@@ -7,6 +7,14 @@
     </div>
     <div class="flex items-center gap-4 font-semibold leading-6 text-zinc-900">
       <%= if @current_user do %>
+        <%= if @current_user.role == :driver do %>
+          <.link
+            href={~p"/driver/dashboard"}
+            class="rounded-lg bg-blue-600 px-3 py-1 text-white hover:bg-blue-700 font-medium"
+          >
+            Driver Dashboard
+          </.link>
+        <% end %>
         <span class="text-sm">
           Welcome, <%= @current_user.name %>
           <span class="text-xs text-gray-500">(<%= @current_user.role %>)</span>

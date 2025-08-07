@@ -91,7 +91,10 @@ defmodule RidexWeb.UserRegistrationLive do
   end
 
   def handle_event("save", %{"user" => user_params}, socket) do
-    case Accounts.create_user(user_params) do
+    # Add the selected role to user params
+    user_params_with_role = Map.put(user_params, "role", socket.assigns.role)
+
+    case Accounts.create_user_with_profile(user_params_with_role) do
       {:ok, _user} ->
         changeset = Accounts.change_user_registration(%{})
         {:noreply, socket |> assign(trigger_submit: true) |> assign_form(changeset)}

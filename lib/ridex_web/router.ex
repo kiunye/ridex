@@ -47,7 +47,7 @@ defmodule RidexWeb.Router do
 
     live_session :require_authenticated_user,
       on_mount: [{RidexWeb.UserAuth, :ensure_authenticated}] do
-      # Add authenticated routes here
+      live "/driver/dashboard", DriverDashboardLive, :index
     end
   end
 
@@ -57,10 +57,13 @@ defmodule RidexWeb.Router do
     delete "/users/log_out", UserSessionController, :delete
   end
 
-  # Other scopes may use custom stacks.
-  # scope "/api", RidexWeb do
-  #   pipe_through :api
-  # end
+  # API routes
+  scope "/api", RidexWeb do
+    pipe_through [:browser, :require_authenticated_user]
+
+    post "/trips/:id/accept", TripController, :accept
+    post "/trips/:id/decline", TripController, :decline
+  end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:ridex, :dev_routes) do

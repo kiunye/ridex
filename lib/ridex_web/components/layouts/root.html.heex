@@ -10,6 +10,11 @@
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
     </script>
+    <%= if assigns[:current_user] do %>
+      <script>
+        window.userToken = "<%= Ridex.Accounts.generate_user_socket_token(@current_user) %>";
+      </script>
+    <% end %>
   </head>
   <body class="bg-white">
     {@inner_content}

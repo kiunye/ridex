@@ -1,0 +1,621 @@
+<div class="max-w-4xl mx-auto p-6">
+  <div class="bg-white shadow-lg rounded-lg">
+    <!-- Header -->
+    <div class="px-6 py-4 border-b border-gray-200">
+      <h1 class="text-2xl font-bold text-gray-900">Driver Dashboard</h1>
+      <p class="text-gray-600">Welcome back, <%= @current_user.name %></p>
+    </div>
+
+    <!-- Driver Status Card -->
+    <div class="p-6">
+      <div class="bg-gray-50 rounded-lg p-4 mb-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-lg font-semibold text-gray-900">Current Status</h2>
+            <div class="mt-2">
+              <span class={"inline-flex items-center px-3 py-1 rounded-full text-sm font-medium #{driver_status_class(@driver)}"}>
+                <%= driver_status_text(@driver) %>
+              </span>
+            </div>
+          </div>
+          
+          <div class="text-right">
+            <p class="text-sm text-gray-600">Vehicle</p>
+            <p class="font-medium">
+              <%= if @driver.vehicle_info do %>
+                <%= @driver.vehicle_info["make"] %> <%= @driver.vehicle_info["model"] %>
+              <% else %>
+                Not set
+              <% end %>
+            </p>
+            <%= if @driver.license_plate do %>
+              <p class="text-sm text-gray-500"><%= @driver.license_plate %></p>
+            <% end %>
+          </div>
+        </div>
+      </div>
+
+      <!-- Location Status -->
+      <div class="bg-blue-50 rounded-lg p-4 mb-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-3">Location Status</h3>
+        
+        <!-- Debug info -->
+        <div class="text-xs text-gray-500 mb-2">
+          Permission: <%= @location_permission %> | 
+          Location: <%= if @current_location, do: "Yes", else: "No" %> |
+          Error: <%= @location_error %>
+        </div>
+        
+        <%= cond do %>
+          <% @location_permission == :unknown -> %>
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-gray-600">Location permission not requested</p>
+                <p class="text-sm text-gray-500">Click to enable location services</p>
+              </div>
+              <button 
+                phx-click="request_location"
+                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium transition-colors"
+              >
+                Enable Location
+              </button>
+            </div>
+          
+          <% @location_permission == :denied or @location_error -> %>
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-red-600 font-medium">Location Access Required</p>
+                <p class="text-sm text-red-500"><%= @location_error || "Location permission denied" %></p>
+              </div>
+              <button 
+                phx-click="request_location"
+                class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md font-medium transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          
+          <% @current_location -> %>
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-green-600 font-medium">Location Active</p>
+                <p class="text-sm text-gray-600">
+                  Lat: <%= :erlang.float_to_binary(@current_location.latitude, decimals: 6) %>, 
+                  Lng: <%= :erlang.float_to_binary(@current_location.longitude, decimals: 6) %>
+                </p>
+                <%= if @current_location.accuracy do %>
+                  <p class="text-xs text-gray-500">Accuracy: <%= round(@current_location.accuracy) %>m</p>
+                <% end %>
+              </div>
+              <div class="flex items-center text-green-600">
+                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"></path>
+                </svg>
+                <span class="text-sm font-medium">GPS Active</span>
+              </div>
+            </div>
+        <% end %>
+      </div>
+
+      <!-- Check-in/Check-out Controls -->
+      <div class="bg-white border-2 border-gray-200 rounded-lg p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Availability Controls</h3>
+        
+        <div class="flex space-x-4">
+          <%= if can_check_in?(@driver, @current_location) do %>
+            <button 
+              phx-click="check_in"
+              disabled={@checking_in}
+              class="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white px-6 py-3 rounded-md font-medium transition-colors flex items-center justify-center"
+            >
+              <%= if @checking_in do %>
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Checking In...
+              <% else %>
+                Check In
+              <% end %>
+            </button>
+          <% end %>
+
+          <%= if can_check_out?(@driver) do %>
+            <button 
+              phx-click="check_out"
+              disabled={@checking_out}
+              class="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white px-6 py-3 rounded-md font-medium transition-colors flex items-center justify-center"
+            >
+              <%= if @checking_out do %>
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Checking Out...
+              <% else %>
+                Check Out
+              <% end %>
+            </button>
+          <% end %>
+        </div>
+
+        <%= if not can_check_in?(@driver, @current_location) and not @driver.is_active do %>
+          <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+            <p class="text-sm text-yellow-800">
+              <%= cond do %>
+                <% is_nil(@current_location) -> %>
+                  Enable location services to check in and start receiving ride requests.
+                <% @driver.is_active -> %>
+                  You are already checked in and available for rides.
+                <% true -> %>
+                  Unable to check in at this time.
+              <% end %>
+            </p>
+          </div>
+        <% end %>
+      </div>
+
+      <!-- Ride Request Notification -->
+      <%= if @ride_request do %>
+        <div class="mt-6 bg-blue-50 border-2 border-blue-200 rounded-lg p-6 animate-pulse">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-blue-900">🚗 New Ride Request!</h3>
+            <div class="text-sm text-blue-600 font-medium">
+              Expires in <span id="request-timer">30</span>s
+            </div>
+          </div>
+          
+          <div class="mb-4">
+            <p class="text-gray-700 mb-2">
+              <strong>Pickup Location:</strong> <%= format_pickup_location(@ride_request.pickup_location) %>
+            </p>
+            <p class="text-gray-700 mb-2">
+              <strong>Distance:</strong> <%= Float.round(@ride_request.distance_km, 1) %> km away
+            </p>
+            <p class="text-gray-700">
+              <strong>Estimated Arrival:</strong> <%= @ride_request.estimated_arrival_minutes %> minutes
+            </p>
+          </div>
+
+          <div class="flex space-x-4">
+            <button 
+              phx-click="accept_ride_request"
+              disabled={@accepting_trip}
+              class="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white px-6 py-3 rounded-md font-bold transition-colors flex items-center justify-center"
+            >
+              <%= if @accepting_trip do %>
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Accepting...
+              <% else %>
+                ✅ Accept Ride
+              <% end %>
+            </button>
+
+            <button 
+              phx-click="decline_ride_request"
+              disabled={@declining_trip}
+              class="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white px-6 py-3 rounded-md font-bold transition-colors flex items-center justify-center"
+            >
+              <%= if @declining_trip do %>
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Declining...
+              <% else %>
+                ❌ Decline
+              <% end %>
+            </button>
+          </div>
+        </div>
+      <% end %>
+
+      <!-- Current Trip Controls -->
+      <%= if @current_trip do %>
+        <div class="mt-6 bg-green-50 border-2 border-green-200 rounded-lg p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-green-900">Current Trip</h3>
+            <span class={"inline-flex items-center px-3 py-1 rounded-full text-sm font-medium #{trip_status_class(@current_trip["status"])}"}>
+              <%= trip_status_text(@current_trip["status"]) %>
+            </span>
+          </div>
+
+          <div class="mb-4">
+            <%= if @current_trip["pickup_location"] do %>
+              <p class="text-gray-700 mb-2">
+                <strong>Pickup:</strong> <%= format_pickup_location(@current_trip["pickup_location"]) %>
+              </p>
+            <% end %>
+            <%= if @current_trip["destination"] do %>
+              <p class="text-gray-700 mb-2">
+                <strong>Destination:</strong> <%= format_pickup_location(@current_trip["destination"]) %>
+              </p>
+            <% end %>
+            <%= if @current_trip["rider_info"] do %>
+              <p class="text-gray-700">
+                <strong>Rider:</strong> <%= @current_trip["rider_info"]["name"] %>
+              </p>
+            <% end %>
+          </div>
+
+          <div class="flex space-x-4">
+            <%= if can_start_trip?(@current_trip) do %>
+              <button 
+                phx-click="start_trip"
+                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md font-medium transition-colors"
+              >
+                🚀 Start Trip
+              </button>
+            <% end %>
+
+            <%= if can_complete_trip?(@current_trip) do %>
+              <button 
+                phx-click="complete_trip"
+                class="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-md font-medium transition-colors"
+              >
+                ✅ Complete Trip
+              </button>
+            <% end %>
+
+            <%= if @current_trip["status"] in ["accepted", "in_progress"] do %>
+              <button 
+                onclick="if(confirm('Are you sure you want to cancel this trip?')) { this.dispatchEvent(new CustomEvent('phx:cancel_trip', {bubbles: true})); }"
+                class="px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium transition-colors"
+              >
+                Cancel Trip
+              </button>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+
+      <!-- Quick Stats (placeholder for future features) -->
+      <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-gray-50 p-4 rounded-lg">
+          <h4 class="text-sm font-medium text-gray-600">Today's Trips</h4>
+          <p class="text-2xl font-bold text-gray-900">0</p>
+        </div>
+        <div class="bg-gray-50 p-4 rounded-lg">
+          <h4 class="text-sm font-medium text-gray-600">Hours Online</h4>
+          <p class="text-2xl font-bold text-gray-900">0.0</p>
+        </div>
+        <div class="bg-gray-50 p-4 rounded-lg">
+          <h4 class="text-sm font-medium text-gray-600">Earnings</h4>
+          <p class="text-2xl font-bold text-gray-900">$0.00</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Location handling JavaScript
+  window.addEventListener("phx:request_location", (e) => {
+    console.log("Location request received");
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          console.log("Location received:", position.coords);
+          // Send the location data back to the LiveView
+          const liveViewElement = document.querySelector('[data-phx-main]');
+          if (liveViewElement && window.liveSocket) {
+            // Find the LiveView and send the event
+            const view = window.liveSocket.getViewByEl(liveViewElement);
+            if (view) {
+              view.pushEvent("location_received", {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                accuracy: position.coords.accuracy
+              });
+            }
+          }
+        },
+        (error) => {
+          console.log("Location error:", error);
+          let errorType;
+          switch(error.code) {
+            case error.PERMISSION_DENIED:
+              errorType = "permission_denied";
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorType = "position_unavailable";
+              break;
+            case error.TIMEOUT:
+              errorType = "timeout";
+              break;
+            default:
+              errorType = "unknown";
+              break;
+          }
+          
+          const liveViewElement = document.querySelector('[data-phx-main]');
+          if (liveViewElement && window.liveSocket) {
+            const view = window.liveSocket.getViewByEl(liveViewElement);
+            if (view) {
+              view.pushEvent("location_error", { error: errorType });
+            }
+          }
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 60000
+        }
+      );
+    } else {
+      console.log("Geolocation not supported");
+      const liveViewElement = document.querySelector('[data-phx-main]');
+      if (liveViewElement && window.liveSocket) {
+        const view = window.liveSocket.getViewByEl(liveViewElement);
+        if (view) {
+          view.pushEvent("location_error", { error: "not_supported" });
+        }
+      }
+    }
+  });
+
+  // WebSocket connection for driver check-in/out
+  let socket = new Phoenix.Socket("/socket", {params: {token: window.userToken}});
+  socket.connect();
+
+  let locationChannel = socket.channel("location:updates", {});
+  locationChannel.join()
+    .receive("ok", resp => { console.log("Joined location channel", resp) })
+    .receive("error", resp => { console.log("Unable to join location channel", resp) });
+
+  // Handle driver check-in
+  window.addEventListener("phx:driver_checkin", (e) => {
+    locationChannel.push("driver_checkin", e.detail)
+      .receive("ok", (resp) => {
+        window.liveSocket.execJS(document.body, [
+          ["push_event", { event: "checkin_success", data: resp }]
+        ]);
+      })
+      .receive("error", (resp) => {
+        window.liveSocket.execJS(document.body, [
+          ["push_event", { event: "checkin_error", data: resp }]
+        ]);
+      });
+  });
+
+  // Handle driver check-out
+  window.addEventListener("phx:driver_checkout", (e) => {
+    locationChannel.push("driver_checkout", {})
+      .receive("ok", (resp) => {
+        window.liveSocket.execJS(document.body, [
+          ["push_event", { event: "checkout_success", data: resp }]
+        ]);
+      })
+      .receive("error", (resp) => {
+        window.liveSocket.execJS(document.body, [
+          ["push_event", { event: "checkout_error", data: resp }]
+        ]);
+      });
+  });
+
+  // Continuous location tracking when checked in
+  let locationTracking = null;
+
+  locationChannel.on("driver_status_changed", (payload) => {
+    if (payload.status === "active") {
+      // Start continuous location tracking
+      if (navigator.geolocation && !locationTracking) {
+        locationTracking = navigator.geolocation.watchPosition(
+          (position) => {
+            locationChannel.push("location_update", {
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              accuracy: position.coords.accuracy
+            });
+          },
+          (error) => {
+            console.error("Location tracking error:", error);
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 5000,
+            maximumAge: 10000
+          }
+        );
+      }
+    } else if (payload.status === "offline") {
+      // Stop location tracking
+      if (locationTracking) {
+        navigator.geolocation.clearWatch(locationTracking);
+        locationTracking = null;
+      }
+    }
+  });
+
+  // Trip management
+  let tripChannel = null;
+
+  // Handle trip acceptance
+  window.addEventListener("phx:accept_trip", (e) => {
+    const tripId = e.detail.trip_id;
+    
+    // Use matching service to accept the trip
+    fetch(`/api/trips/${tripId}/accept`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+      },
+      credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        // Join the trip channel
+        if (tripChannel) {
+          tripChannel.leave();
+        }
+        tripChannel = socket.channel(`trip:${tripId}`, {});
+        tripChannel.join()
+          .receive("ok", resp => { 
+            console.log("Joined trip channel", resp);
+            window.liveSocket.execJS(document.body, [
+              ["push_event", { event: "trip_accepted", data: { trip: data.trip } }]
+            ]);
+          })
+          .receive("error", resp => { 
+            console.log("Unable to join trip channel", resp);
+            window.liveSocket.execJS(document.body, [
+              ["push_event", { event: "trip_accept_error", data: { error: "Failed to join trip channel" } }]
+            ]);
+          });
+      } else {
+        window.liveSocket.execJS(document.body, [
+          ["push_event", { event: "trip_accept_error", data: { error: data.error || "Unknown error" } }]
+        ]);
+      }
+    })
+    .catch(error => {
+      console.error('Error accepting trip:', error);
+      window.liveSocket.execJS(document.body, [
+        ["push_event", { event: "trip_accept_error", data: { error: "Network error" } }]
+      ]);
+    });
+  });
+
+  // Handle trip decline
+  window.addEventListener("phx:decline_trip", (e) => {
+    const tripId = e.detail.trip_id;
+    
+    fetch(`/api/trips/${tripId}/decline`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+      },
+      credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        window.liveSocket.execJS(document.body, [
+          ["push_event", { event: "trip_declined", data: {} }]
+        ]);
+      } else {
+        window.liveSocket.execJS(document.body, [
+          ["push_event", { event: "trip_decline_error", data: { error: data.error || "Unknown error" } }]
+        ]);
+      }
+    })
+    .catch(error => {
+      console.error('Error declining trip:', error);
+      window.liveSocket.execJS(document.body, [
+        ["push_event", { event: "trip_decline_error", data: { error: "Network error" } }]
+      ]);
+    });
+  });
+
+  // Handle trip start
+  window.addEventListener("phx:start_trip", (e) => {
+    const tripId = e.detail.trip_id;
+    
+    if (tripChannel) {
+      tripChannel.push("update_trip_status", { status: "start" })
+        .receive("ok", (resp) => {
+          window.liveSocket.execJS(document.body, [
+            ["push_event", { event: "trip_started", data: { trip: resp.trip } }]
+          ]);
+        })
+        .receive("error", (resp) => {
+          window.liveSocket.execJS(document.body, [
+            ["push_event", { event: "trip_error", data: { error: resp.reason || "Failed to start trip" } }]
+          ]);
+        });
+    }
+  });
+
+  // Handle trip completion
+  window.addEventListener("phx:complete_trip", (e) => {
+    const tripId = e.detail.trip_id;
+    
+    if (tripChannel) {
+      tripChannel.push("update_trip_status", { status: "complete" })
+        .receive("ok", (resp) => {
+          window.liveSocket.execJS(document.body, [
+            ["push_event", { event: "trip_completed", data: { trip: resp.trip } }]
+          ]);
+          // Leave trip channel
+          tripChannel.leave();
+          tripChannel = null;
+        })
+        .receive("error", (resp) => {
+          window.liveSocket.execJS(document.body, [
+            ["push_event", { event: "trip_error", data: { error: resp.reason || "Failed to complete trip" } }]
+          ]);
+        });
+    }
+  });
+
+  // Handle trip cancellation
+  window.addEventListener("phx:cancel_trip", (e) => {
+    if (tripChannel) {
+      tripChannel.push("cancel_trip", { reason: "Driver cancelled" })
+        .receive("ok", (resp) => {
+          // Leave trip channel
+          tripChannel.leave();
+          tripChannel = null;
+        })
+        .receive("error", (resp) => {
+          window.liveSocket.execJS(document.body, [
+            ["push_event", { event: "trip_error", data: { error: resp.reason || "Failed to cancel trip" } }]
+          ]);
+        });
+    }
+  });
+
+  // Request timeout countdown
+  let timeoutInterval = null;
+
+  function startRequestTimer() {
+    let timeLeft = 30;
+    const timerElement = document.getElementById('request-timer');
+    
+    if (timerElement) {
+      timeoutInterval = setInterval(() => {
+        timeLeft--;
+        if (timerElement) {
+          timerElement.textContent = timeLeft;
+        }
+        
+        if (timeLeft <= 0) {
+          clearInterval(timeoutInterval);
+          timeoutInterval = null;
+        }
+      }, 1000);
+    }
+  }
+
+  function stopRequestTimer() {
+    if (timeoutInterval) {
+      clearInterval(timeoutInterval);
+      timeoutInterval = null;
+    }
+  }
+
+  // Start timer when ride request appears
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.type === 'childList') {
+        const rideRequestElement = document.querySelector('[id="request-timer"]');
+        if (rideRequestElement && !timeoutInterval) {
+          startRequestTimer();
+        } else if (!rideRequestElement && timeoutInterval) {
+          stopRequestTimer();
+        }
+      }
+    });
+  });
+
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+</script>
