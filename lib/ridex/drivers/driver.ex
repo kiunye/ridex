@@ -56,7 +56,12 @@ defmodule Ridex.Drivers.Driver do
         changeset
         |> validate_vehicle_info_fields(vehicle_info)
       _ ->
-        add_error(changeset, :vehicle_info, "must be a valid map")
+        # Only add error if this is not a validation action
+        if changeset.action == :validate do
+          changeset
+        else
+          add_error(changeset, :vehicle_info, "must be a valid map")
+        end
     end
   end
 
@@ -74,8 +79,13 @@ defmodule Ridex.Drivers.Driver do
         changeset
         |> validate_vehicle_year(vehicle_info["year"])
       _ ->
-        add_error(changeset, :vehicle_info,
-          "must include #{Enum.join(missing_fields, ", ")}")
+        # Only add error if this is not a validation action (i.e., during save)
+        if changeset.action == :validate do
+          changeset
+        else
+          add_error(changeset, :vehicle_info,
+            "must include #{Enum.join(missing_fields, ", ")}")
+        end
     end
   end
 
@@ -99,10 +109,22 @@ defmodule Ridex.Drivers.Driver do
   defp validate_vehicle_year(changeset, _), do: changeset
 
   defp validate_license_plate(changeset) do
-    changeset
-    |> validate_format(:license_plate, ~r/^[A-Z0-9\-\s]{2,10}$/i,
-        message: "must be 2-10 characters, letters, numbers, hyphens, and spaces only")
-    |> update_change(:license_plate, &String.upcase/1)
+    # Only validate format if license_plate is not empty and not during validation action
+    case {get_change(changeset, :license_plate), changeset.action} do
+      {nil, _} -> changeset
+      {"", _} -> changeset
+      {plate, :validate} when is_binary(plate) ->
+        # During validation, just update the case but don't validate format
+        changeset
+        |> update_change(:license_plate, &String.upcase/1)
+      {plate, _} when is_binary(plate) ->
+        # During save, validate format and update case
+        changeset
+        |> validate_format(:license_plate, ~r/^[A-Z0-9\-\s]{2,10}$/i,
+            message: "must be 2-10 characters, letters, numbers, hyphens, and spaces only")
+        |> update_change(:license_plate, &String.upcase/1)
+      _ -> changeset
+    end
   end
 
   defp validate_availability_status(changeset) do

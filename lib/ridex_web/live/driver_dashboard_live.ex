@@ -38,7 +38,9 @@ defmodule RidexWeb.DriverDashboardLive do
          |> assign(:request_timeout_ref, nil)
          |> assign(:accepting_trip, false)
          |> assign(:declining_trip, false)
-         |> assign(:current_trip, nil)}
+         |> assign(:current_trip, nil)
+         |> assign(:show_vehicle_form, false)
+         |> assign(:vehicle_form, create_vehicle_form(driver))}
     end
   end
 
@@ -51,15 +53,23 @@ defmodule RidexWeb.DriverDashboardLive do
 
   @impl true
   def handle_event("location_received", params, socket) do
-    lat = params["latitude"]
-    lng = params["longitude"]
-    accuracy = Map.get(params, "accuracy")
+    lat = ensure_float(params["latitude"])
+    lng = ensure_float(params["longitude"])
+    accuracy = ensure_float(Map.get(params, "accuracy"))
 
-    {:noreply,
-     socket
-     |> assign(:current_location, %{latitude: lat, longitude: lng, accuracy: accuracy})
-     |> assign(:location_permission, :granted)
-     |> assign(:location_error, nil)}
+    # Only proceed if we have valid latitude and longitude
+    if lat && lng do
+      {:noreply,
+       socket
+       |> assign(:current_location, %{latitude: lat, longitude: lng, accuracy: accuracy})
+       |> assign(:location_permission, :granted)
+       |> assign(:location_error, nil)}
+    else
+      {:noreply,
+       socket
+       |> assign(:location_permission, :denied)
+       |> assign(:location_error, "Invalid location data received")}
+    end
   end
 
   @impl true
@@ -68,6 +78,8 @@ defmodule RidexWeb.DriverDashboardLive do
       "permission_denied" -> "Location permission denied. Please enable location services."
       "position_unavailable" -> "Location unavailable. Please check your GPS settings."
       "timeout" -> "Location request timed out. Please try again."
+      "geolocation_not_supported" -> "Geolocation is not supported by this browser."
+      "invalid_coordinates" -> "Invalid location coordinates received. Please try again."
       _ -> "Unable to get location. Please try again."
     end
 
@@ -263,6 +275,56 @@ defmodule RidexWeb.DriverDashboardLive do
   end
 
   @impl true
+  def handle_event("show_vehicle_form", _params, socket) do
+    # Initialize form with current vehicle data
+    form = create_vehicle_form(socket.assigns.driver)
+
+    {:noreply,
+     socket
+     |> assign(:show_vehicle_form, true)
+     |> assign(:vehicle_form, form)}
+  end
+
+  @impl true
+  def handle_event("hide_vehicle_form", _params, socket) do
+    {:noreply, assign(socket, :show_vehicle_form, false)}
+  end
+
+
+
+  @impl true
+  def handle_event("validate_vehicle", %{"driver" => driver_params}, socket) do
+    # Process vehicle_info to ensure proper data types
+    processed_params = process_vehicle_params(driver_params)
+
+    changeset =
+      socket.assigns.driver
+      |> Drivers.change_driver(processed_params)
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign(socket, :vehicle_form, to_form(changeset, as: "driver"))}
+  end
+
+  @impl true
+  def handle_event("save_vehicle", %{"driver" => driver_params}, socket) do
+    # Process vehicle_info to ensure proper data types
+    processed_params = process_vehicle_params(driver_params)
+
+    case Drivers.update_driver(socket.assigns.driver, processed_params) do
+      {:ok, driver} ->
+        {:noreply,
+         socket
+         |> assign(:driver, driver)
+         |> assign(:show_vehicle_form, false)
+         |> assign(:vehicle_form, create_vehicle_form(driver))
+         |> put_flash(:info, "Vehicle information updated successfully!")}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, :vehicle_form, to_form(changeset, as: "driver"))}
+    end
+  end
+
+  @impl true
   def handle_info(%{event: "location_updated", payload: location_data}, socket) do
     if location_data.user_id == socket.assigns.current_user.id do
       {:noreply,
@@ -289,12 +351,18 @@ defmodule RidexWeb.DriverDashboardLive do
   end
 
   @impl true
+  def handle_info({:assign, key, value}, socket) do
+    # Handle test assignments
+    {:noreply, assign(socket, key, value)}
+  end
+
+  @impl true
   def handle_info(%{event: "ride_request", payload: request_data}, socket) do
     # Only show ride request if driver is active and doesn't have a current trip
     driver = socket.assigns.driver
     current_trip = socket.assigns.current_trip
 
-    if driver.is_active and is_nil(current_trip) do
+    if driver.is_active and driver.availability_status == :active and is_nil(current_trip) do
       # Set up automatic timeout for the request
       timeout_ref = Process.send_after(self(), {:ride_request_timeout, request_data.trip_id}, 30_000)
 
@@ -407,7 +475,17 @@ defmodule RidexWeb.DriverDashboardLive do
   end
 
   defp can_check_in?(driver, location) do
-    not driver.is_active and not is_nil(location)
+    not driver.is_active and
+    not is_nil(location) and
+    has_vehicle_info?(driver)
+  end
+
+  defp has_vehicle_info?(driver) do
+    driver.vehicle_info != nil and
+    driver.vehicle_info["make"] != nil and
+    driver.vehicle_info["model"] != nil and
+    driver.vehicle_info["year"] != nil and
+    driver.license_plate != nil
   end
 
   defp can_check_out?(driver) do
@@ -457,4 +535,73 @@ defmodule RidexWeb.DriverDashboardLive do
   defp can_complete_trip?(trip) do
     trip && trip["status"] == "in_progress"
   end
+
+
+
+  defp should_show_ride_request?(driver, current_trip) do
+    # Don't show ride requests if driver has a current trip
+    if current_trip do
+      false
+    else
+      # Don't show ride requests if driver is inactive
+      driver.availability_status == :active
+    end
+  end
+
+  # Helper function to process vehicle parameters
+  defp process_vehicle_params(driver_params) do
+    case Map.get(driver_params, "vehicle_info") do
+      nil -> driver_params
+      vehicle_info when is_map(vehicle_info) ->
+        # Clean up vehicle_info - remove empty strings and convert year to integer
+        cleaned_vehicle_info =
+          vehicle_info
+          |> Enum.reject(fn {_key, value} -> value == "" end)
+          |> Enum.into(%{})
+          |> convert_year_to_integer()
+
+        # Only include vehicle_info if it has content
+        if map_size(cleaned_vehicle_info) > 0 do
+          Map.put(driver_params, "vehicle_info", cleaned_vehicle_info)
+        else
+          Map.delete(driver_params, "vehicle_info")
+        end
+      _ -> driver_params
+    end
+  end
+
+  defp convert_year_to_integer(vehicle_info) do
+    case Map.get(vehicle_info, "year") do
+      year_str when is_binary(year_str) ->
+        case Integer.parse(year_str) do
+          {year_int, ""} -> Map.put(vehicle_info, "year", year_int)
+          _ -> vehicle_info
+        end
+      _ -> vehicle_info
+    end
+  end
+
+  # Helper function to create vehicle form with current data
+  defp create_vehicle_form(driver) do
+    # Create initial params with current vehicle data
+    initial_params = %{
+      "license_plate" => driver.license_plate || "",
+      "vehicle_info" => driver.vehicle_info || %{}
+    }
+
+    changeset = Drivers.change_driver(driver, initial_params)
+    to_form(changeset, as: "driver")
+  end
+
+  # Helper function to ensure a value is a float
+  defp ensure_float(nil), do: nil
+  defp ensure_float(value) when is_float(value), do: value
+  defp ensure_float(value) when is_integer(value), do: value * 1.0
+  defp ensure_float(value) when is_binary(value) do
+    case Float.parse(value) do
+      {float_val, _} -> float_val
+      :error -> nil
+    end
+  end
+  defp ensure_float(_), do: nil
 end

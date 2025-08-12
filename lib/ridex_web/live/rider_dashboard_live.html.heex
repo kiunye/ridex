@@ -1,0 +1,418 @@
+<div id="rider-dashboard" class="rider-dashboard min-h-screen bg-gray-50" phx-hook="LocationRequest">
+  <!-- Header -->
+  <div class="bg-white shadow-sm border-b border-gray-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center py-4">
+        <div class="flex items-center">
+          <h1 class="text-xl font-semibold text-gray-900">Ridex Rider</h1>
+          <span class="ml-3 text-sm text-gray-500">Welcome, <%= @current_user.name %></span>
+        </div>
+
+        <div class="flex items-center space-x-4">
+          <!-- Location Status -->
+          <div class="flex items-center">
+            <%= if @location_permission == :granted do %>
+              <div class="flex items-center text-green-600">
+                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"></path>
+                </svg>
+                <span class="text-sm">Location enabled</span>
+              </div>
+            <% else %>
+              <button
+                phx-click="request_location"
+                class="flex items-center text-red-600 hover:text-red-700"
+              >
+                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"></path>
+                </svg>
+                <span class="text-sm">Enable location</span>
+              </button>
+            <% end %>
+          </div>
+
+          <!-- Refresh Drivers Button -->
+          <button
+            phx-click="refresh_drivers"
+            class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            Refresh
+          </button>
+
+          <!-- Logout -->
+          <.link
+            href={~p"/users/log_out"}
+            method="delete"
+            class="text-sm text-gray-500 hover:text-gray-700"
+          >
+            Log out
+          </.link>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error Messages -->
+  <%= if @location_error do %>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+      <div class="bg-red-50 border border-red-200 rounded-md p-4">
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+            </svg>
+          </div>
+          <div class="ml-3">
+            <p class="text-sm text-red-800"><%= @location_error %></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  <% end %>
+
+  <!-- Main Content -->
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- Map Section -->
+      <div class="lg:col-span-2">
+        <div class="bg-white rounded-lg shadow">
+          <div class="p-4 border-b border-gray-200">
+            <h2 class="text-lg font-medium text-gray-900">
+              Map
+              <%= if length(@nearby_drivers) > 0 do %>
+                <span class="ml-2 text-sm text-gray-500">
+                  (<%= length(@nearby_drivers) %> drivers nearby)
+                </span>
+              <% end %>
+            </h2>
+          </div>
+
+          <div class="relative">
+            <!-- Map Container -->
+            <div id="map" class="w-full h-96 bg-gray-100 rounded-b-lg" phx-hook="RiderMap" phx-update="ignore">
+              <%= if @location_permission != :granted do %>
+                <div class="flex items-center justify-center h-full">
+                  <div class="text-center">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900">Enable location to see map</h3>
+                    <p class="mt-1 text-sm text-gray-500">Click "Enable location" to view nearby drivers</p>
+                    <button
+                      phx-click="request_location"
+                      class="mt-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                    >
+                      Enable Location
+                    </button>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Control Panel -->
+      <div class="space-y-6">
+
+        <!-- Current Trip Status -->
+        <%= if @current_trip do %>
+          <div class="bg-white rounded-lg shadow">
+            <div class="p-4 border-b border-gray-200">
+              <div class="flex items-center justify-between">
+                <h3 class="text-lg font-medium text-gray-900">Current Trip</h3>
+                <%= if @search_start_time && @current_trip.status == :requested do %>
+                  <span class="text-xs text-gray-500">
+                    Searching for <%= format_search_duration(@search_start_time) %>
+                  </span>
+                <% end %>
+              </div>
+            </div>
+            <div class="p-4">
+              <div class="flex items-center justify-between mb-4">
+                <span class={["inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium", trip_status_class(@current_trip.status)]}>
+                  <%= trip_status_text(@current_trip.status) %>
+                </span>
+
+                <%= if @current_trip.status in [:requested, :accepted] do %>
+                  <button
+                    phx-click="cancel_ride_request"
+                    class="text-sm text-red-600 hover:text-red-700 font-medium"
+                  >
+                    Cancel Trip
+                  </button>
+                <% end %>
+              </div>
+
+              <!-- Trip Progress Indicator -->
+              <div class="mb-4">
+                <div class="flex items-center justify-between text-xs text-gray-500 mb-1">
+                  <span>Requested</span>
+                  <span>Driver Found</span>
+                  <span>In Progress</span>
+                  <span>Completed</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                  <div class={[
+                    "h-2 rounded-full transition-all duration-500",
+                    case @current_trip.status do
+                      :requested -> "bg-blue-500 w-1/4"
+                      :accepted -> "bg-yellow-500 w-2/4"
+                      :in_progress -> "bg-green-500 w-3/4"
+                      :completed -> "bg-green-600 w-full"
+                      _ -> "bg-gray-400 w-1/4"
+                    end
+                  ]}></div>
+                </div>
+              </div>
+
+              <!-- Driver Information -->
+              <%= if @current_trip.driver && is_map(@current_trip.driver) do %>
+                <div class="border rounded-lg p-3 bg-gray-50 mb-4">
+                  <h4 class="font-medium text-gray-900 mb-2">Your Driver</h4>
+                  <div class="text-sm text-gray-600 space-y-1">
+                    <%= if @current_trip.driver["name"] do %>
+                      <p><strong>Name:</strong> <%= @current_trip.driver["name"] %></p>
+                    <% end %>
+                    <%= if @current_trip.driver["vehicle_info"] do %>
+                      <p>
+                        <strong>Vehicle:</strong>
+                        <%= @current_trip.driver["vehicle_info"]["make"] %>
+                        <%= @current_trip.driver["vehicle_info"]["model"] %>
+                      </p>
+                    <% end %>
+                    <%= if @current_trip.driver["license_plate"] do %>
+                      <p><strong>License:</strong> <%= @current_trip.driver["license_plate"] %></p>
+                    <% end %>
+                  </div>
+
+                  <!-- Driver Status -->
+                  <%= if @current_trip.status == :accepted do %>
+                    <div class="mt-2 flex items-center text-sm">
+                      <div class="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></div>
+                      <span class="text-green-700">Driver is on the way</span>
+                    </div>
+                  <% end %>
+                </div>
+              <% end %>
+
+              <!-- Trip Locations -->
+              <div class="space-y-2 mb-4">
+                <%= if @pickup_location do %>
+                  <div class="flex items-center text-sm">
+                    <div class="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
+                    <div>
+                      <span class="font-medium text-gray-700">Pickup:</span>
+                      <span class="text-gray-600 ml-1"><%= format_location(@pickup_location) %></span>
+                    </div>
+                  </div>
+                <% end %>
+
+                <%= if @destination do %>
+                  <div class="flex items-center text-sm">
+                    <div class="w-3 h-3 bg-red-500 rounded-full mr-3"></div>
+                    <div>
+                      <span class="font-medium text-gray-700">Destination:</span>
+                      <span class="text-gray-600 ml-1"><%= format_location(@destination) %></span>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
+
+              <!-- Search Status -->
+              <%= if @trip_search_status do %>
+                <div class="mt-3 flex items-center p-3 bg-blue-50 rounded-lg">
+                  <svg class="animate-spin -ml-1 mr-3 h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <div>
+                    <span class="text-sm text-blue-800 font-medium"><%= @trip_search_status %></span>
+                    <p class="text-xs text-blue-600 mt-1">This may take up to 2 minutes</p>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+
+        <!-- Ride Request Form -->
+        <%= if is_nil(@current_trip) do %>
+          <div class="bg-white rounded-lg shadow">
+            <div class="p-4 border-b border-gray-200">
+              <h3 class="text-lg font-medium text-gray-900">Request a Ride</h3>
+            </div>
+            <div class="p-4 space-y-4">
+
+              <!-- Pickup Location -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                  Pickup Location
+                </label>
+                <%= if @pickup_location do %>
+                  <div class="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-md">
+                    <div class="flex items-center">
+                      <svg class="h-4 w-4 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"></path>
+                      </svg>
+                      <span class="text-sm text-gray-700">
+                        <%= format_location(@pickup_location) %>
+                      </span>
+                    </div>
+                  </div>
+                <% else %>
+                  <p class="text-sm text-gray-500 p-3 border border-gray-300 rounded-md">
+                    Click on the map to set pickup location
+                  </p>
+                <% end %>
+              </div>
+
+              <!-- Destination (Optional) -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                  Destination <span class="text-gray-400">(optional)</span>
+                </label>
+                <%= if @destination do %>
+                  <div class="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <div class="flex items-center">
+                      <svg class="h-4 w-4 text-blue-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"></path>
+                      </svg>
+                      <span class="text-sm text-gray-700">
+                        <%= format_location(@destination) %>
+                      </span>
+                    </div>
+                  </div>
+                <% else %>
+                  <p class="text-sm text-gray-500 p-3 border border-gray-300 rounded-md">
+                    Right-click on map to set destination
+                  </p>
+                <% end %>
+              </div>
+
+              <!-- Request Ride Button -->
+              <button
+                phx-click="request_ride"
+                disabled={!can_request_ride?(@pickup_location, @current_trip) or @requesting_ride}
+                class={[
+                  "w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white",
+                  if(can_request_ride?(@pickup_location, @current_trip) and not @requesting_ride,
+                    do: "bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500",
+                    else: "bg-gray-400 cursor-not-allowed"
+                  )
+                ]}
+              >
+                <%= if @requesting_ride do %>
+                  <svg class="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Requesting...
+                <% else %>
+                  Request Ride
+                <% end %>
+              </button>
+            </div>
+          </div>
+        <% end %>
+
+        <!-- Nearby Drivers List -->
+        <%= if @location_permission == :granted and length(@nearby_drivers) > 0 do %>
+          <div class="bg-white rounded-lg shadow">
+            <div class="p-4 border-b border-gray-200">
+              <h3 class="text-lg font-medium text-gray-900">
+                Nearby Drivers (<%= length(@nearby_drivers) %>)
+              </h3>
+            </div>
+            <div class="divide-y divide-gray-200">
+              <%= for driver <- @nearby_drivers do %>
+                <div class="p-4">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                      <div class="flex-shrink-0">
+                        <div class="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                          <svg class="h-4 w-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"></path>
+                            <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 00-1 1v6.05A2.5 2.5 0 0115.95 16H17a1 1 0 001-1V8a1 1 0 00-1-1h-3z"></path>
+                          </svg>
+                        </div>
+                      </div>
+                      <div class="ml-3">
+                        <div class="text-sm font-medium text-gray-900">
+                          <%= if driver.vehicle_info do %>
+                            <%= driver.vehicle_info["make"] %> <%= driver.vehicle_info["model"] %>
+                          <% else %>
+                            Vehicle
+                          <% end %>
+                        </div>
+                        <div class="text-sm text-gray-500">
+                          <%= if driver.license_plate do %>
+                            <%= driver.license_plate %> •
+                          <% end %>
+                          <%= Float.round(driver.distance_km, 1) %> km away
+                        </div>
+                      </div>
+                    </div>
+                    <div class="text-sm text-gray-500">
+                      <%= if driver.last_updated do %>
+                        Updated recently
+                      <% end %>
+                    </div>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+
+        <!-- No Drivers Message -->
+        <%= if @location_permission == :granted and length(@nearby_drivers) == 0 do %>
+          <div class="bg-white rounded-lg shadow">
+            <div class="p-6 text-center">
+              <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3a4 4 0 118 0v4m-4 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"></path>
+              </svg>
+              <h3 class="mt-2 text-sm font-medium text-gray-900">No drivers nearby</h3>
+              <p class="mt-1 text-sm text-gray-500">
+                There are no available drivers in your area right now.
+              </p>
+              <button
+                phx-click="refresh_drivers"
+                class="mt-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-blue-600 bg-blue-100 hover:bg-blue-200"
+              >
+                Refresh
+              </button>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- JavaScript for Map Integration -->
+<script>
+  window.RiderDashboard = {
+    initMap: function(mapElement, options = {}) {
+      // This will be implemented with a mapping library like Leaflet
+      console.log("Initializing rider map", options);
+    },
+
+    updateDrivers: function(drivers) {
+      console.log("Updating drivers on map", drivers);
+    },
+
+    setPickupMarker: function(location) {
+      console.log("Setting pickup marker", location);
+    },
+
+    setDestinationMarker: function(location) {
+      console.log("Setting destination marker", location);
+    }
+  };
+</script>

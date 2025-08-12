@@ -91,8 +91,9 @@ defmodule RidexWeb.UserRegistrationLive do
   end
 
   def handle_event("save", %{"user" => user_params}, socket) do
-    # Add the selected role to user params
-    user_params_with_role = Map.put(user_params, "role", socket.assigns.role)
+    # Use role from form params if provided, otherwise use socket assigns
+    role = Map.get(user_params, "role", socket.assigns.role)
+    user_params_with_role = Map.put(user_params, "role", role)
 
     case Accounts.create_user_with_profile(user_params_with_role) do
       {:ok, _user} ->

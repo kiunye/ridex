@@ -10,6 +10,8 @@ defmodule RidexWeb.UserSocket do
   channel "location:*", RidexWeb.LocationChannel
   channel "drivers:*", RidexWeb.LocationChannel
   channel "trip:*", RidexWeb.TripChannel
+  channel "user:*", RidexWeb.UserChannel
+  channel "users:lobby", RidexWeb.UserChannel
 
   # Socket params are passed from the client and can
   # be used to verify and authenticate a user. After

@@ -21,7 +21,7 @@ defmodule RidexWeb.DriverDashboardLiveTest do
       assert {:error, {:redirect, %{to: "/"}}} = live(conn, ~p"/driver/dashboard")
     end
 
-    test "displays driver dashboard for authenticated driver", %{conn: conn, user: user, driver: driver} do
+    test "displays driver dashboard for authenticated driver", %{conn: conn, user: user, driver: _driver} do
       conn = log_in_user(conn, user)
 
       {:ok, _view, html} = live(conn, ~p"/driver/dashboard")
@@ -33,7 +33,7 @@ defmodule RidexWeb.DriverDashboardLiveTest do
     end
 
     test "displays vehicle information when available", %{conn: conn, user: user, driver: driver} do
-      {:ok, updated_driver} = Drivers.update_driver(driver, %{
+      {:ok, _updated_driver} = Drivers.update_driver(driver, %{
         vehicle_info: %{"make" => "Toyota", "model" => "Camry", "year" => 2020},
         license_plate: "ABC123"
       })
@@ -51,6 +51,66 @@ defmodule RidexWeb.DriverDashboardLiveTest do
 
       assert html =~ "Location permission not requested"
       assert html =~ "Enable Location"
+    end
+
+    test "allows driver to set up vehicle information", %{conn: conn, user: user, driver: driver} do
+      # Create a driver without vehicle info
+      {:ok, driver_without_vehicle} = Drivers.update_driver(driver, %{
+        vehicle_info: nil,
+        license_plate: nil
+      })
+
+      conn = log_in_user(conn, user)
+      {:ok, view, html} = live(conn, ~p"/driver/dashboard")
+
+      # Initially shows "Not set" for vehicle
+      assert html =~ "Not set"
+      assert html =~ "Set Up"
+
+      # Click to show vehicle form
+      html = view |> element("button", "Set Up") |> render_click()
+      assert html =~ "Vehicle Information"
+      assert html =~ "Make"
+      assert html =~ "Model"
+
+      # Fill out and submit the form
+      view
+      |> form("form", driver: %{
+        vehicle_info: %{make: "Honda", model: "Civic", year: "2021", color: "Blue"},
+        license_plate: "XYZ789"
+      })
+      |> render_submit()
+
+      # Verify the vehicle information is updated
+      updated_driver = Drivers.get_driver!(driver.id)
+      assert updated_driver.vehicle_info["make"] == "Honda"
+      assert updated_driver.vehicle_info["model"] == "Civic"
+      assert updated_driver.license_plate == "XYZ789"
+    end
+
+    test "validates vehicle information form", %{conn: conn, user: user, driver: driver} do
+      # Create a driver without vehicle info
+      {:ok, _driver_without_vehicle} = Drivers.update_driver(driver, %{
+        vehicle_info: nil,
+        license_plate: nil
+      })
+
+      conn = log_in_user(conn, user)
+      {:ok, view, _html} = live(conn, ~p"/driver/dashboard")
+
+      # Show vehicle form
+      view |> element("button", "Set Up") |> render_click()
+
+      # Submit form with invalid data
+      html = view
+      |> form("form", driver: %{
+        vehicle_info: %{make: "", model: "Civic", year: "1980"},  # Invalid year and empty make
+        license_plate: ""
+      })
+      |> render_submit()
+
+      # Should show validation errors
+      assert html =~ "must include make"
     end
 
     test "handles location permission granted", %{conn: conn, user: user} do
@@ -88,7 +148,7 @@ defmodule RidexWeb.DriverDashboardLiveTest do
       assert html =~ "Location permission denied"
     end
 
-    test "enables check-in button when location is available", %{conn: conn, user: user, driver: driver} do
+    test "enables check-in button when location is available", %{conn: conn, user: user, driver: _driver} do
       conn = log_in_user(conn, user)
       {:ok, view, _html} = live(conn, ~p"/driver/dashboard")
 
@@ -109,14 +169,14 @@ defmodule RidexWeb.DriverDashboardLiveTest do
       {:ok, _driver} = Drivers.activate_driver(driver)
 
       conn = log_in_user(conn, user)
-      {:ok, view, html} = live(conn, ~p"/driver/dashboard")
+      {:ok, _view, html} = live(conn, ~p"/driver/dashboard")
 
       assert html =~ "Active - Available for rides"
       assert html =~ "Check Out"
       refute html =~ "Check In"
     end
 
-    test "handles successful check-in", %{conn: conn, user: user, driver: driver} do
+    test "handles successful check-in", %{conn: conn, user: user, driver: _driver} do
       conn = log_in_user(conn, user)
       {:ok, view, _html} = live(conn, ~p"/driver/dashboard")
 
@@ -134,7 +194,7 @@ defmodule RidexWeb.DriverDashboardLiveTest do
       assert render(view) =~ "Successfully checked in"
     end
 
-    test "handles check-in error", %{conn: conn, user: user, driver: driver} do
+    test "handles check-in error", %{conn: conn, user: user, driver: _driver} do
       conn = log_in_user(conn, user)
       {:ok, view, _html} = live(conn, ~p"/driver/dashboard")
 
@@ -179,7 +239,7 @@ defmodule RidexWeb.DriverDashboardLiveTest do
       assert html =~ "availability_status: cannot change status"
     end
 
-    test "displays loading state during check-in", %{conn: conn, user: user, driver: driver} do
+    test "displays loading state during check-in", %{conn: conn, user: user, driver: _driver} do
       conn = log_in_user(conn, user)
       {:ok, view, _html} = live(conn, ~p"/driver/dashboard")
 
@@ -232,14 +292,14 @@ defmodule RidexWeb.DriverDashboardLiveTest do
       assert html =~ "Active - Available for rides"
     end
 
-    test "shows warning when location is required for check-in", %{conn: conn, user: user, driver: driver} do
+    test "shows warning when location is required for check-in", %{conn: conn, user: user, driver: _driver} do
       conn = log_in_user(conn, user)
-      {:ok, view, html} = live(conn, ~p"/driver/dashboard")
+      {:ok, _view, html} = live(conn, ~p"/driver/dashboard")
 
       assert html =~ "Enable location services to check in"
     end
 
-    test "displays quick stats placeholders", %{conn: conn, user: user, driver: driver} do
+    test "displays quick stats placeholders", %{conn: conn, user: user, driver: _driver} do
       conn = log_in_user(conn, user)
       {:ok, _view, html} = live(conn, ~p"/driver/dashboard")
 
@@ -362,10 +422,13 @@ defmodule RidexWeb.DriverDashboardLiveTest do
 
     test "does not show ride request when driver is inactive", %{conn: conn, user: user, driver: driver} do
       # Deactivate driver
-      {:ok, _driver} = Drivers.deactivate_driver(driver)
+      {:ok, updated_driver} = Drivers.deactivate_driver(driver)
 
       conn = log_in_user(conn, user)
       {:ok, view, _html} = live(conn, ~p"/driver/dashboard")
+
+      # Update the driver state in the LiveView
+      send(view.pid, {:assign, :driver, updated_driver})
 
       # Send ride request message
       ride_request = %{

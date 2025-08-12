@@ -19,7 +19,8 @@ defmodule RidexWeb.UserRegistrationLiveTest do
       {:error, redirect} = live(conn, ~p"/users/register")
 
       assert {:redirect, %{to: path}} = redirect
-      assert path == ~p"/"
+      # User fixture creates a rider, so should redirect to rider dashboard
+      assert path == ~p"/rider/dashboard"
     end
 
     test "renders errors for invalid data", %{conn: conn} do
@@ -77,7 +78,8 @@ defmodule RidexWeb.UserRegistrationLiveTest do
       render_submit(form)
       conn = follow_trigger_action(form, conn)
 
-      assert redirected_to(conn) == ~p"/"
+      # Default registration creates rider, so should redirect to rider dashboard
+      assert redirected_to(conn) == ~p"/rider/dashboard"
 
       # Now do a logged in request and assert on the menu
       conn = get(conn, ~p"/")
@@ -110,7 +112,8 @@ defmodule RidexWeb.UserRegistrationLiveTest do
       render_submit(form)
       conn = follow_trigger_action(form, conn)
 
-      assert redirected_to(conn) == ~p"/"
+      # Should redirect to rider dashboard for rider role
+      assert redirected_to(conn) == ~p"/rider/dashboard"
 
       # Verify user was created with rider role
       user = Ridex.Accounts.get_user_by_email(email)
@@ -128,7 +131,8 @@ defmodule RidexWeb.UserRegistrationLiveTest do
       render_submit(form)
       conn = follow_trigger_action(form, conn)
 
-      assert redirected_to(conn) == ~p"/"
+      # Should redirect to driver dashboard for driver role
+      assert redirected_to(conn) == ~p"/driver/dashboard"
 
       # Verify user was created with driver role
       user = Ridex.Accounts.get_user_by_email(email)

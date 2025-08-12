@@ -15,6 +15,9 @@ defmodule RidexWeb.Router do
 
   pipeline :api do
     plug :accepts, ["json"]
+    plug :fetch_session
+    plug :fetch_live_flash
+    plug :fetch_current_user
   end
 
   scope "/", RidexWeb do
@@ -48,6 +51,7 @@ defmodule RidexWeb.Router do
     live_session :require_authenticated_user,
       on_mount: [{RidexWeb.UserAuth, :ensure_authenticated}] do
       live "/driver/dashboard", DriverDashboardLive, :index
+      live "/rider/dashboard", RiderDashboardLive, :index
     end
   end
 
@@ -59,7 +63,7 @@ defmodule RidexWeb.Router do
 
   # API routes
   scope "/api", RidexWeb do
-    pipe_through [:browser, :require_authenticated_user]
+    pipe_through [:api, :require_authenticated_user]
 
     post "/trips/:id/accept", TripController, :accept
     post "/trips/:id/decline", TripController, :decline

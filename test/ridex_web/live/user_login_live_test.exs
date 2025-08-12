@@ -20,7 +20,8 @@ defmodule RidexWeb.UserLoginLiveTest do
       {:error, redirect} = live(conn, ~p"/users/log_in")
 
       assert {:redirect, %{to: path}} = redirect
-      assert path == ~p"/"
+      # User fixture creates a rider, so should redirect to rider dashboard
+      assert path == ~p"/rider/dashboard"
     end
   end
 
@@ -36,7 +37,8 @@ defmodule RidexWeb.UserLoginLiveTest do
 
       conn = submit_form(form, conn)
 
-      assert redirected_to(conn) == ~p"/"
+      # User fixture creates a rider, so should redirect to rider dashboard
+      assert redirected_to(conn) == ~p"/rider/dashboard"
     end
 
     test "redirects to intended page after login", %{conn: conn} do
@@ -50,7 +52,8 @@ defmodule RidexWeb.UserLoginLiveTest do
 
       conn = submit_form(form, conn)
 
-      assert redirected_to(conn) == ~p"/"
+      # User fixture creates a rider, so should redirect to rider dashboard
+      assert redirected_to(conn) == ~p"/rider/dashboard"
     end
 
     test "displays error for invalid credentials", %{conn: conn} do

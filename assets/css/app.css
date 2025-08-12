@@ -3,3 +3,40 @@
 @import "tailwindcss/utilities";
 
 /* This file is for your main application CSS */
+
+/* Leaflet Map Styles */
+/* Use Tailwind height on container; provide fallback for #map */
+#map {
+  min-height: 24rem; /* 96 Tailwind equals 24rem */
+}
+
+/* Custom marker styles */
+.user-location-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.driver-marker-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.pickup-marker-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.destination-marker-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Ensure Leaflet popup styles work with Tailwind */
+.leaflet-popup-content-wrapper {
+  border-radius: 0.375rem;
+}
+
+.leaflet-popup-content {
+  margin: 8px 12px;
+  line-height: 1.4;
+}

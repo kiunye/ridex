@@ -29,6 +29,9 @@ defmodule RidexWeb.UserAuth do
     token = Accounts.generate_user_session_token(user)
     user_return_to = get_session(conn, :user_return_to)
 
+    # Assign user to conn so signed_in_path can use it
+    conn = assign(conn, :current_user, user)
+
     conn
     |> renew_session()
     |> put_token_in_session(token)
@@ -224,5 +227,11 @@ defmodule RidexWeb.UserAuth do
 
   defp maybe_store_return_to(conn), do: conn
 
-  defp signed_in_path(_conn), do: ~p"/"
+  defp signed_in_path(conn) do
+    case conn.assigns[:current_user] do
+      %{role: :driver} -> ~p"/driver/dashboard"
+      %{role: :rider} -> ~p"/rider/dashboard"
+      _ -> ~p"/"
+    end
+  end
 end

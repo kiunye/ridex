@@ -21,22 +21,147 @@
           
           <div class="text-right">
             <p class="text-sm text-gray-600">Vehicle</p>
-            <p class="font-medium">
-              <%= if @driver.vehicle_info do %>
-                <%= @driver.vehicle_info["make"] %> <%= @driver.vehicle_info["model"] %>
-              <% else %>
-                Not set
-              <% end %>
-            </p>
-            <%= if @driver.license_plate do %>
-              <p class="text-sm text-gray-500"><%= @driver.license_plate %></p>
-            <% end %>
+            <div class="flex items-center space-x-2">
+              <div>
+                <p class="font-medium">
+                  <%= if @driver.vehicle_info do %>
+                    <%= @driver.vehicle_info["make"] %> <%= @driver.vehicle_info["model"] %>
+                  <% else %>
+                    Not set
+                  <% end %>
+                </p>
+                <%= if @driver.license_plate do %>
+                  <p class="text-sm text-gray-500"><%= @driver.license_plate %></p>
+                <% end %>
+              </div>
+              <button 
+                phx-click="show_vehicle_form"
+                class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+              >
+                <%= if @driver.vehicle_info, do: "Edit", else: "Set Up" %>
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
+      <!-- Vehicle Setup Modal -->
+      <%= if @show_vehicle_form do %>
+        <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" id="vehicle-modal-backdrop">
+          <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white" 
+               phx-hook="VehicleForm" 
+               id="vehicle-form-modal"
+               data-vehicle-info={Jason.encode!(@driver.vehicle_info || %{})}
+               data-license-plate={@driver.license_plate || ""}>
+            <div class="mt-3">
+              <h3 class="text-lg font-medium text-gray-900 mb-4">Vehicle Information</h3>
+              
+              <.form 
+                for={@vehicle_form} 
+                phx-change="validate_vehicle" 
+                phx-submit="save_vehicle"
+                class="space-y-4"
+              >
+                <%= if @vehicle_form.source.action do %>
+                  <div class="bg-red-50 border border-red-200 rounded-md p-3 mb-4">
+                    <p class="text-sm text-red-800">Oops, something went wrong! Please check the errors below.</p>
+                  </div>
+                <% end %>
+                
+                <div>
+                  <.label for="vehicle_make">Make</.label>
+                  <.input 
+                    type="text" 
+                    placeholder="e.g., Toyota, Honda, Ford"
+                    name="driver[vehicle_info][make]"
+                    id="vehicle_make"
+                    value={get_in(@vehicle_form.params, ["vehicle_info", "make"]) || get_in(@vehicle_form.data.vehicle_info || %{}, ["make"]) || ""}
+                  />
+                </div>
+
+                <div>
+                  <.label for="vehicle_model">Model</.label>
+                  <.input 
+                    type="text" 
+                    placeholder="e.g., Camry, Civic, Focus"
+                    name="driver[vehicle_info][model]"
+                    id="vehicle_model"
+                    value={get_in(@vehicle_form.params, ["vehicle_info", "model"]) || get_in(@vehicle_form.data.vehicle_info || %{}, ["model"]) || ""}
+                  />
+                </div>
+
+                <div>
+                  <.label for="vehicle_year">Year</.label>
+                  <.input 
+                    type="number" 
+                    placeholder="e.g., 2020"
+                    min="1990"
+                    max={Date.utc_today().year + 1}
+                    name="driver[vehicle_info][year]"
+                    id="vehicle_year"
+                    value={get_in(@vehicle_form.params, ["vehicle_info", "year"]) || get_in(@vehicle_form.data.vehicle_info || %{}, ["year"]) || ""}
+                  />
+                </div>
+
+                <div>
+                  <.label for="vehicle_color">Color (Optional)</.label>
+                  <.input 
+                    type="text" 
+                    placeholder="e.g., White, Black, Silver"
+                    name="driver[vehicle_info][color]"
+                    id="vehicle_color"
+                    value={get_in(@vehicle_form.params, ["vehicle_info", "color"]) || get_in(@vehicle_form.data.vehicle_info || %{}, ["color"]) || ""}
+                  />
+                </div>
+
+                <div>
+                  <.label for="license_plate">License Plate</.label>
+                  <.input 
+                    field={@vehicle_form[:license_plate]}
+                    type="text" 
+                    placeholder="e.g., ABC123"
+                  />
+                </div>
+                
+                <!-- Display vehicle_info errors -->
+                <%= if @vehicle_form.source.errors[:vehicle_info] do %>
+                  <div class="bg-red-50 border border-red-200 rounded-md p-3">
+                    <p class="text-sm text-red-800">
+                      <%= case @vehicle_form.source.errors[:vehicle_info] do %>
+                        <% {msg, _opts} -> %>
+                          <%= msg %>
+                        <% errors when is_list(errors) -> %>
+                          <%= for {msg, _opts} <- errors do %>
+                            <%= msg %><br/>
+                          <% end %>
+                      <% end %>
+                    </p>
+                  </div>
+                <% end %>
+
+                <div class="flex justify-end space-x-3 pt-4">
+                  <button 
+                    type="button" 
+                    phx-click="hide_vehicle_form"
+                    class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    Save Vehicle Info
+                  </button>
+                </div>
+              </.form>
+            </div>
+          </div>
+        </div>
+      <% end %>
+
       <!-- Location Status -->
-      <div class="bg-blue-50 rounded-lg p-4 mb-6">
+      <div class="bg-blue-50 rounded-lg p-4 mb-6" phx-hook="LocationHandler" id="location-handler">
         <h3 class="text-lg font-semibold text-gray-900 mb-3">Location Status</h3>
         
         <!-- Debug info -->
@@ -83,7 +208,7 @@
                   Lat: <%= :erlang.float_to_binary(@current_location.latitude, decimals: 6) %>, 
                   Lng: <%= :erlang.float_to_binary(@current_location.longitude, decimals: 6) %>
                 </p>
-                <%= if @current_location.accuracy do %>
+                <%= if @current_location.accuracy && is_number(@current_location.accuracy) do %>
                   <p class="text-xs text-gray-500">Accuracy: <%= round(@current_location.accuracy) %>m</p>
                 <% end %>
               </div>
@@ -145,6 +270,8 @@
               <%= cond do %>
                 <% is_nil(@current_location) -> %>
                   Enable location services to check in and start receiving ride requests.
+                <% not has_vehicle_info?(@driver) -> %>
+                  Please set up your vehicle information before checking in.
                 <% @driver.is_active -> %>
                   You are already checked in and available for rides.
                 <% true -> %>
@@ -156,7 +283,7 @@
       </div>
 
       <!-- Ride Request Notification -->
-      <%= if @ride_request do %>
+      <%= if @ride_request && should_show_ride_request?(@driver, @current_trip) do %>
         <div class="mt-6 bg-blue-50 border-2 border-blue-200 rounded-lg p-6 animate-pulse">
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-bold text-blue-900">🚗 New Ride Request!</h3>
@@ -173,7 +300,7 @@
               <strong>Distance:</strong> <%= Float.round(@ride_request.distance_km, 1) %> km away
             </p>
             <p class="text-gray-700">
-              <strong>Estimated Arrival:</strong> <%= @ride_request.estimated_arrival_minutes %> minutes
+              <strong>Estimated Arrival:</strong> <%= Map.get(@ride_request, :estimated_arrival) || Map.get(@ride_request, :estimated_arrival_minutes) %> minutes
             </p>
           </div>
 
@@ -213,7 +340,7 @@
         </div>
       <% end %>
 
-      <!-- Current Trip Controls -->
+      <!-- Trip Controls Section -->
       <%= if @current_trip do %>
         <div class="mt-6 bg-green-50 border-2 border-green-200 rounded-lg p-6">
           <div class="flex items-center justify-between mb-4">
@@ -247,7 +374,7 @@
                 phx-click="start_trip"
                 class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md font-medium transition-colors"
               >
-                🚀 Start Trip
+                Start Trip
               </button>
             <% end %>
 
@@ -256,7 +383,7 @@
                 phx-click="complete_trip"
                 class="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-md font-medium transition-colors"
               >
-                ✅ Complete Trip
+                Complete Trip
               </button>
             <% end %>
 
@@ -292,143 +419,155 @@
 </div>
 
 <script>
-  // Location handling JavaScript
-  window.addEventListener("phx:request_location", (e) => {
-    console.log("Location request received");
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          console.log("Location received:", position.coords);
-          // Send the location data back to the LiveView
-          const liveViewElement = document.querySelector('[data-phx-main]');
-          if (liveViewElement && window.liveSocket) {
-            // Find the LiveView and send the event
-            const view = window.liveSocket.getViewByEl(liveViewElement);
-            if (view) {
-              view.pushEvent("location_received", {
+  // Global error handler for debugging
+  window.addEventListener('error', function(e) {
+    console.error('JavaScript error:', e.error, 'at', e.filename, ':', e.lineno);
+  });
+
+  // Location handling is now done via LocationHandler hook in app.js
+
+  // Helper function for WebSocket-related events
+  function pushWebSocketEvent(eventName, data) {
+    try {
+      const liveViewElement = document.querySelector('[data-phx-main]');
+      if (liveViewElement && window.liveSocket) {
+        const view = window.liveSocket.getViewByEl(liveViewElement);
+        if (view && typeof view.pushEvent === 'function') {
+          view.pushEvent(eventName, data);
+        }
+      }
+    } catch (error) {
+      console.error("Error pushing WebSocket event:", error);
+    }
+  }
+
+  // WebSocket connection for driver check-in/out
+  let socket = null;
+  let locationChannel = null;
+  
+  // Initialize socket connection
+  function initializeSocket() {
+    if (!window.userToken) {
+      console.error("User token not available");
+      return;
+    }
+    
+    // Check if Phoenix is available
+    if (typeof Phoenix === 'undefined') {
+      console.error("Phoenix library not available");
+      return;
+    }
+    
+    socket = new Phoenix.Socket("/socket", {params: {token: window.userToken}});
+    
+    socket.onOpen(() => {
+      console.log("Socket connected");
+      joinLocationChannel();
+    });
+    
+    socket.onError((error) => {
+      console.error("Socket error:", error);
+    });
+    
+    socket.onClose(() => {
+      console.log("Socket disconnected");
+    });
+    
+    socket.connect();
+  }
+  
+  // Join location channel
+  function joinLocationChannel() {
+    if (!socket) return;
+    
+    locationChannel = socket.channel("location:updates", {});
+    locationChannel.join()
+      .receive("ok", resp => { 
+        console.log("Joined location channel", resp);
+        setupLocationChannelHandlers();
+      })
+      .receive("error", resp => { 
+        console.error("Unable to join location channel", resp);
+      });
+  }
+  
+  // Setup location channel event handlers
+  function setupLocationChannelHandlers() {
+    if (!locationChannel) return;
+    
+    locationChannel.on("driver_status_changed", (payload) => {
+      if (payload.status === "active") {
+        // Start continuous location tracking
+        if (navigator.geolocation && !locationTracking) {
+          locationTracking = navigator.geolocation.watchPosition(
+            (position) => {
+              locationChannel.push("location_update", {
                 latitude: position.coords.latitude,
                 longitude: position.coords.longitude,
                 accuracy: position.coords.accuracy
               });
+            },
+            (error) => {
+              console.error("Location tracking error:", error);
+            },
+            {
+              enableHighAccuracy: true,
+              timeout: 5000,
+              maximumAge: 10000
             }
-          }
-        },
-        (error) => {
-          console.log("Location error:", error);
-          let errorType;
-          switch(error.code) {
-            case error.PERMISSION_DENIED:
-              errorType = "permission_denied";
-              break;
-            case error.POSITION_UNAVAILABLE:
-              errorType = "position_unavailable";
-              break;
-            case error.TIMEOUT:
-              errorType = "timeout";
-              break;
-            default:
-              errorType = "unknown";
-              break;
-          }
-          
-          const liveViewElement = document.querySelector('[data-phx-main]');
-          if (liveViewElement && window.liveSocket) {
-            const view = window.liveSocket.getViewByEl(liveViewElement);
-            if (view) {
-              view.pushEvent("location_error", { error: errorType });
-            }
-          }
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 60000
+          );
         }
-      );
-    } else {
-      console.log("Geolocation not supported");
-      const liveViewElement = document.querySelector('[data-phx-main]');
-      if (liveViewElement && window.liveSocket) {
-        const view = window.liveSocket.getViewByEl(liveViewElement);
-        if (view) {
-          view.pushEvent("location_error", { error: "not_supported" });
+      } else if (payload.status === "offline") {
+        // Stop location tracking
+        if (locationTracking) {
+          navigator.geolocation.clearWatch(locationTracking);
+          locationTracking = null;
         }
       }
-    }
-  });
+    });
+  }
+  
+  // Initialize when page loads
+  document.addEventListener('DOMContentLoaded', initializeSocket);
 
-  // WebSocket connection for driver check-in/out
-  let socket = new Phoenix.Socket("/socket", {params: {token: window.userToken}});
-  socket.connect();
 
-  let locationChannel = socket.channel("location:updates", {});
-  locationChannel.join()
-    .receive("ok", resp => { console.log("Joined location channel", resp) })
-    .receive("error", resp => { console.log("Unable to join location channel", resp) });
 
   // Handle driver check-in
   window.addEventListener("phx:driver_checkin", (e) => {
+    if (!locationChannel) {
+      console.error("Location channel not available");
+      pushWebSocketEvent("checkin_error", { errors: "Connection not available" });
+      return;
+    }
+    
     locationChannel.push("driver_checkin", e.detail)
       .receive("ok", (resp) => {
-        window.liveSocket.execJS(document.body, [
-          ["push_event", { event: "checkin_success", data: resp }]
-        ]);
+        pushWebSocketEvent("checkin_success", resp);
       })
       .receive("error", (resp) => {
-        window.liveSocket.execJS(document.body, [
-          ["push_event", { event: "checkin_error", data: resp }]
-        ]);
+        pushWebSocketEvent("checkin_error", resp);
       });
   });
 
   // Handle driver check-out
   window.addEventListener("phx:driver_checkout", (e) => {
+    if (!locationChannel) {
+      console.error("Location channel not available");
+      pushWebSocketEvent("checkout_error", { errors: "Connection not available" });
+      return;
+    }
+    
     locationChannel.push("driver_checkout", {})
       .receive("ok", (resp) => {
-        window.liveSocket.execJS(document.body, [
-          ["push_event", { event: "checkout_success", data: resp }]
-        ]);
+        pushWebSocketEvent("checkout_success", resp);
       })
       .receive("error", (resp) => {
-        window.liveSocket.execJS(document.body, [
-          ["push_event", { event: "checkout_error", data: resp }]
-        ]);
+        pushWebSocketEvent("checkout_error", resp);
       });
   });
 
   // Continuous location tracking when checked in
   let locationTracking = null;
-
-  locationChannel.on("driver_status_changed", (payload) => {
-    if (payload.status === "active") {
-      // Start continuous location tracking
-      if (navigator.geolocation && !locationTracking) {
-        locationTracking = navigator.geolocation.watchPosition(
-          (position) => {
-            locationChannel.push("location_update", {
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-              accuracy: position.coords.accuracy
-            });
-          },
-          (error) => {
-            console.error("Location tracking error:", error);
-          },
-          {
-            enableHighAccuracy: true,
-            timeout: 5000,
-            maximumAge: 10000
-          }
-        );
-      }
-    } else if (payload.status === "offline") {
-      // Stop location tracking
-      if (locationTracking) {
-        navigator.geolocation.clearWatch(locationTracking);
-        locationTracking = null;
-      }
-    }
-  });
 
   // Trip management
   let tripChannel = null;

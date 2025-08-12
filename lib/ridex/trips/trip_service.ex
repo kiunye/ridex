@@ -318,7 +318,7 @@ defmodule Ridex.Trips.TripService do
       not is_valid_location?(attrs[:pickup_location]) ->
         {:error, :invalid_pickup_location}
 
-      Map.has_key?(attrs, :destination) and not is_valid_location?(attrs[:destination]) ->
+      Map.has_key?(attrs, :destination) and not is_nil(attrs[:destination]) and not is_valid_location?(attrs[:destination]) ->
         {:error, :invalid_destination}
 
       true ->
